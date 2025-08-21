@@ -5,7 +5,8 @@ import dotenv from 'dotenv';
 
 // Import configurations and routes
 import connectDB from './config/db.config.js';
-import authRoutes from './api/routes/auth.routes.js'; // <-- Import auth routes
+import authRoutes from './api/routes/auth.routes.js';
+import materialRoutes from './api/routes/material.routes.js'; // <-- Import material routes
 
 // Load environment variables from a .env file
 dotenv.config();
@@ -28,7 +29,10 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mount the authentication routes
-app.use('/api/auth', authRoutes); // <-- Tell the app to use the auth routes
+app.use('/api/auth', authRoutes);
+
+// Mount the material routes
+app.use('/api/materials', materialRoutes); // <-- Tell the app to use the material routes
 
 
 // Define the port
