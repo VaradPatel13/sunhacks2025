@@ -1,6 +1,8 @@
 import express from 'express';
 import authRoutes from './auth.routes.js';
 import materialRoutes from './material.routes.js';
+import studyRoutes from './study.routes.js';
+import dashboardRoutes from './dashboard.routes.js'; // <-- Import the new dashboard routes
 
 const router = express.Router();
 
@@ -12,7 +14,7 @@ router.get('/status', (req, res) => {
 // Mount the specific routers
 router.use('/auth', authRoutes);
 router.use('/materials', materialRoutes);
-
-// We will add other routes (study, dashboard) here later
+router.use('/study', studyRoutes);
+router.use('/dashboard', dashboardRoutes); // <-- Tell the router to use the dashboard routes
 
 export default router;
