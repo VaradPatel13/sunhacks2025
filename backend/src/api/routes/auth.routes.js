@@ -1,23 +1,30 @@
 import express from 'express';
 
-// We will create these controller functions in the next step
+// Import controller functions
 import { register, login } from '../controllers/auth.controller.js';
 
-// Initialize the Express router
+// Import validation schemas and middleware
+import { validate } from '../../middlewares/validator.middleware.js'; // <-- This line was likely missing or incorrect
+import { authValidation } from '../../validators/auth.validator.js';
+
 const router = express.Router();
 
-// --- Route Definitions ---
-
-// @route   POST /api/auth/register
+// @route   POST /api/v1/auth/register
 // @desc    Register a new user
 // @access  Public
-router.post('/register', register);
+router.post(
+  '/register',
+  validate(authValidation.register), // 1. Validate the incoming data first
+  register                             // 2. If validation passes, proceed to the controller
+);
 
-// @route   POST /api/auth/login
-// @desc    Authenticate a user and get a token
+// @route   POST /api/v1/auth/login
+// @desc    Authenticate a user
 // @access  Public
-router.post('/login', login);
+router.post(
+  '/login',
+  validate(authValidation.login), // 1. Validate
+  login                           // 2. Proceed
+);
 
-// Export the router to be used in the main app.js file
 export default router;
-

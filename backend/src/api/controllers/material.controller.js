@@ -1,4 +1,4 @@
-import Material from '../routes/models/material.model.js';
+import Material from '../../models/material.model.js';
 
 /**
  * @desc    Upload a new study material
@@ -52,6 +52,7 @@ export const uploadMaterial = async (req, res) => {
 export const getAllMaterials = async (req, res) => {
   try {
     // Find all materials that belong to the currently logged-in user
+    
     const materials = await Material.find({ user: req.user.id }).sort({ createdAt: -1 });
     res.status(200).json(materials);
   } catch (error) {

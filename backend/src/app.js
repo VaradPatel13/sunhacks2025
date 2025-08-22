@@ -1,44 +1,55 @@
-// Import necessary packages
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 
-// Import configurations and routes
-import connectDB from './config/db.config.js';
-import authRoutes from './api/routes/auth.routes.js';
-import materialRoutes from './api/routes/material.routes.js'; // <-- Import material routes
+// Import routes and error handling middleware
+import allRoutes from './api/routes/index.js'; // We will create this main router next
+import { notFound, errorHandler } from './middlewares/errorHandler.middleware.js'; // We will create this next
 
-// Load environment variables from a .env file
+// Load environment variables
 dotenv.config();
 
 // Initialize the Express app
 const app = express();
 
-// Connect to the database
-connectDB();
-
 // --- Middleware ---
-app.use(cors());
+
+// CORS Configuration
+const corsOptions = {
+  origin: (origin, callback) => {
+    // In development, you might want to allow all origins or a whitelist.
+    const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173']; // Add your frontend dev ports
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+};
+app.use(cors(corsOptions));
+
+// Other middleware
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-
 // --- API Routes ---
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ message: 'Server is healthy and running!' });
+  res.status(200).json({ message: 'Server is healthy!' });
 });
 
-// Mount the authentication routes
-app.use('/api/auth', authRoutes);
-
-// Mount the material routes
-app.use('/api/materials', materialRoutes); // <-- Tell the app to use the material routes
+// Mount all the API routes under a versioned path (e.g., /api/v1)
+app.use('/api/v1', allRoutes);
 
 
-// Define the port
-const PORT = process.env.PORT || 5001;
+// --- Centralized Error Handling ---
+// Handle 404 errors for routes that don't exist
+app.use(notFound);
+// Handle all other errors
+app.use(errorHandler);
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+
+// Export the configured app
+export default app;

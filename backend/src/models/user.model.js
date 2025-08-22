@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide an email'],
     unique: true,
-    // Regular expression to validate email format
+    trim: true, // Good practice to trim whitespace
+    lowercase: true, // Good practice to store emails in lowercase
     match: [
       /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
       'Please provide a valid email',
@@ -17,11 +18,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide a password'],
     minlength: 6,
+    private: true, // Ensure password is not returned in queries by default
   },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+}, {
+  timestamps: true, // Automatically add createdAt and updatedAt
 });
 
 /**
@@ -30,19 +30,14 @@ const userSchema = new mongoose.Schema({
  * It hashes the user's password for security if it has been modified.
  */
 userSchema.pre('save', async function (next) {
-  // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) {
     return next();
   }
-
-  // Generate a salt for hashing
   const salt = await bcrypt.genSalt(10);
-  // Hash the password with the salt
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// Create the User model from the schema
 const User = mongoose.model('User', userSchema);
 
 export default User;

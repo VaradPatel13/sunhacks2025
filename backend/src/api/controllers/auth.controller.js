@@ -1,97 +1,82 @@
-import User from '../routes/models/user.model.js';
-import bcrypt from 'bcryptjs';
+import asyncHandler from 'express-async-handler'; // <-- Imported only ONCE
 import jwt from 'jsonwebtoken';
-
-/**
- * Generates a JSON Web Token (JWT) for a given user ID.
- * @param {string} id - The user's unique ID.
- * @returns {string} - The generated JWT.
- */
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d', // Token will expire in 30 days
-  });
-};
+import httpStatus from 'http-status';
+import { authService } from '../../service/auth.service.js'; // Assuming this service exists
+import User from '../../models/user.model.js';
+import ApiError from '../../utils/ApiError.js';
 
 /**
  * @desc    Register a new user
- * @route   POST /api/auth/register
+ * @route   POST /api/v1/auth/register
  * @access  Public
  */
-export const register = async (req, res) => {
+export const register = asyncHandler(async (req, res) => {
+  // The request body has already been validated by our middleware
   const { email, password } = req.body;
 
-  // Basic validation
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Please enter all fields' });
-  }
+  // Call the service to handle the business logic
+  const newUser = await authService.registerUser(email, password);
 
-  try {
-    // Check if user already exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(409).json({ message: 'User with this email already exists' });
-    }
-
-    // Create a new user instance (password will be hashed by the pre-save hook in the model)
-    const user = await User.create({
-      email,
-      password,
-    });
-
-    // Respond with success
-    res.status(201).json({
-      message: 'User registered successfully',
-      userId: user._id,
-    });
-
-  } catch (error) {
-    console.error('Registration Error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
-  }
-};
+  res.status(httpStatus.CREATED).json({
+    message: 'User registered successfully',
+    userId: newUser._id,
+  });
+});
 
 /**
- * @desc    Authenticate a user and get a token
- * @route   POST /api/auth/login
+ * @desc    Authenticate a user and set a cookie
+ * @route   POST /api/v1/auth/login
  * @access  Public
  */
-export const login = async (req, res) => {
+export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  // Basic validation
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Please provide email and password' });
-  }
+  // Call the service to handle the login logic
+  const { user, token } = await authService.loginUser(email, password);
 
-  try {
-    // Check for user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+  // Set the secure, HTTP-only cookie
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  });
+
+  // Send the response
+  res.status(httpStatus.OK).json({
+    message: 'Login successful',
+    user: {
+      id: user._id,
+      email: user.email,
+    },
+  });
+});
+
+/**
+ * Middleware to protect routes by verifying the JWT from the request cookie.
+ */
+export const protect = asyncHandler(async (req, res, next) => {
+  const token = req.cookies.token;
+
+  if (token) {
+    try {
+      // Verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Find the user by ID and attach them to the request object (without the password)
+      req.user = await User.findById(decoded.id).select('-password');
+
+      if (!req.user) {
+        throw new ApiError(httpStatus.UNAUTHORIZED, 'User not found');
+      }
+
+      next();
+    } catch (error) {
+      // This will catch JWT verification errors (e.g., expired, invalid)
+      throw new ApiError(httpStatus.UNAUTHORIZED, 'Not authorized, token failed');
     }
-
-    // Check if password matches the hashed password in the database
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Generate a token for the user session
-    const token = generateToken(user._id);
-
-    // Respond with the token and user info
-    res.status(200).json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-      },
-    });
-
-  } catch (error) {
-    console.error('Login Error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+  } else {
+    // If no token was found in the cookies at all
+    throw new ApiError(httpStatus.UNAUTHORIZED, 'Not authorized, no token');
   }
-};
+});
